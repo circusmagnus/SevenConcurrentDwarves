@@ -1,14 +1,15 @@
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+@file:OptIn(ExperimentalCoroutinesApi::class)
+
+import kotlinx.coroutines.*
 import kotlin.random.Random
 
 suspend fun main() {
+    val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
     val kitchen = Kitchen()
 
     println("Dwarves are about to dine. Fuel level: ${kitchen.fuel.amount} \n")
 
-    coroutineScope {
+    withContext(singleDispatcher) {
         repeat(7) { dwarfId ->
             launch {
                 val dinner = kitchen.getDinner()
