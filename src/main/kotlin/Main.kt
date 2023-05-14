@@ -4,12 +4,11 @@ import kotlinx.coroutines.*
 import kotlin.random.Random
 
 suspend fun main() {
-    val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
     val kitchen = Kitchen()
 
     println("Dwarves are about to dine. Fuel level: ${kitchen.fuel.amount} \n")
 
-    withContext(singleDispatcher) {
+    coroutineScope {
         repeat(7) { dwarfId ->
             launch {
                 val dinner = kitchen.getDinner()
