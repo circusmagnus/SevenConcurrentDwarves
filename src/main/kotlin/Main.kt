@@ -1,6 +1,9 @@
 @file:OptIn(ExperimentalCoroutinesApi::class)
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlin.random.Random
 
 suspend fun main() {
@@ -26,15 +29,17 @@ suspend fun main() {
 
 class Kitchen {
 
-    private var currentDinner: Dinner = Dinner.EMPTY
+    private var currentDinner = MutableStateFlow(Dinner.EMPTY)
     val fuel: Fuel = Fuel(10)
 
-    suspend fun getDinner(): Dinner =
-        if (currentDinner.isReady) currentDinner
-        else cook(fuel).also { cooked -> currentDinner = cooked }
+    suspend fun getDinner(): Dinner = currentDinner.updateAndGet { dinner ->
+        if (dinner.isReady) dinner else cook(fuel)
+    }
+
 
     fun invalidateDinner() {
-        currentDinner = currentDinner.copy(isReady = false)
+        currentDinner.update { it.copy(isReady = false) }
+//        currentDinner = currentDinner.copy(isReady = false)
     }
 }
 
