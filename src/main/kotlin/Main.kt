@@ -3,7 +3,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
-suspend fun main(args: Array<String>) {
+suspend fun main() {
     println("Hello World!")
     val kitchen = Kitchen()
 
