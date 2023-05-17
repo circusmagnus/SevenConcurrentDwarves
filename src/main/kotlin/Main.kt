@@ -39,7 +39,6 @@ class Kitchen {
 
     fun invalidateDinner() {
         currentDinner.update { it.copy(isReady = false) }
-//        currentDinner = currentDinner.copy(isReady = false)
     }
 }
 
