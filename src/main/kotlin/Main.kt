@@ -4,8 +4,9 @@ import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 suspend fun main() {
-    println("Hello World!")
     val kitchen = Kitchen()
+
+    println("Dwarves are about to dine. Fuel level: ${kitchen.fuel.amount} \n")
 
     coroutineScope {
         repeat(7) { dwarfId ->
@@ -15,10 +16,13 @@ suspend fun main() {
             }
         }
     }
+
     kitchen.invalidateDinner()
     val fuelRemaining = kitchen.fuel.amount
-    println("Dinner eaten, fuel remaining: $fuelRemaining")
+    println("\nDinner eaten, fuel remaining: $fuelRemaining")
 }
+
+/////////////////////////////////////////////////////////////////
 
 class Kitchen {
 
@@ -34,6 +38,16 @@ class Kitchen {
     }
 }
 
+//////////////////////////////////////////////////////////////////
+
+suspend fun cook(fuel: Fuel): Dinner {
+    fuel.amount--
+    delay(70)
+    return Dinner(ingredients = Random.nextInt(100).toString(), isReady = true)
+}
+
+//////////////////////////////////////////////////////////////////////
+
 data class Dinner(
     val ingredients: String,
     val isReady: Boolean
@@ -44,9 +58,3 @@ data class Dinner(
 }
 
 data class Fuel(var amount: Int)
-
-suspend fun cook(fuel: Fuel): Dinner {
-    fuel.amount--
-    delay(70)
-    return Dinner(ingredients = Random.nextInt(100).toString(), isReady = true)
-}
