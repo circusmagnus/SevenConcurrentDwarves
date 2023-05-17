@@ -33,7 +33,6 @@ suspend fun main() {
 
 class Kitchen(scope: CoroutineScope) : CoroutineScope by scope {
 
-
     private val messages = Channel<Message>(capacity = 1024).also { channel ->
         launch {
             var currentDinner: Dinner = Dinner.EMPTY
@@ -56,12 +55,11 @@ class Kitchen(scope: CoroutineScope) : CoroutineScope by scope {
                         message.report.complete(fuel.amount)
                     }
                 }
-
             }
         }
     }
 
-    suspend fun getDinner(): Dinner{
+    suspend fun getDinner(): Dinner {
         val plate = CompletableDeferred<Dinner>()
         messages.send(GetDinner(plate))
         return plate.await()
@@ -80,7 +78,7 @@ class Kitchen(scope: CoroutineScope) : CoroutineScope by scope {
     sealed class Message
     class GetDinner(val plate: CompletableDeferred<Dinner>) : Message()
     object InvalidateDinner : Message()
-    class GetFuel(val report: CompletableDeferred<Int>): Message()
+    class GetFuel(val report: CompletableDeferred<Int>) : Message()
 }
 
 //////////////////////////////////////////////////////////////////
