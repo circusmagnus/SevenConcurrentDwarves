@@ -1,12 +1,13 @@
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consumeEach
 import kotlin.random.Random
 
 suspend fun main() {
-    val kitchen = Kitchen()
+    val kitchenScope = CoroutineScope(Dispatchers.Default)
+    val kitchen = Kitchen(kitchenScope)
 
-    println("Dwarves are about to dine. Fuel level: ${kitchen.fuel.amount} \n")
+    println("Dwarves are about to dine. Fuel level: ${kitchen.getCurrentFuel()} \n")
 
     coroutineScope {
         repeat(7) { dwarfId ->
@@ -14,7 +15,7 @@ suspend fun main() {
                 val dinner = kitchen.getDinner()
                 println("Dwarf #$dwarfId is eating dinner: $dinner")
             }
-            if(dwarfId == 0){
+            if (dwarfId == 0) {
                 delay(10)
                 dwarf.cancel()
             }
@@ -23,28 +24,63 @@ suspend fun main() {
     }
 
     kitchen.invalidateDinner()
-    val fuelRemaining = kitchen.fuel.amount
+    val fuelRemaining = kitchen.getCurrentFuel()
+    kitchen.cancel()
     println("\nDinner eaten, fuel remaining: $fuelRemaining")
 }
 
 /////////////////////////////////////////////////////////////////
 
-class Kitchen {
+class Kitchen(scope: CoroutineScope) : CoroutineScope by scope {
 
-    private var currentDinner: Dinner = Dinner.EMPTY
-    val fuel: Fuel = Fuel(10)
-    private val mutex = Mutex()
 
-    suspend fun getDinner(): Dinner = mutex.withLock {
-        withContext(NonCancellable){
-            if (currentDinner.isReady) currentDinner
-            else cook(fuel).also { cooked -> currentDinner = cooked }
+    private val messages = Channel<Message>(capacity = 1024).also { channel ->
+        launch {
+            var currentDinner: Dinner = Dinner.EMPTY
+            val fuel = Fuel(10)
+            channel.consumeEach { message ->
+                when (message) {
+                    is GetDinner -> {
+                        val dinner =
+                            if (currentDinner.isReady) currentDinner
+                            else cook(fuel).also { cooked -> currentDinner = cooked }
+
+                        message.plate.complete(dinner)
+                    }
+
+                    InvalidateDinner -> {
+                        currentDinner = currentDinner.copy(isReady = false)
+                    }
+
+                    is GetFuel -> {
+                        message.report.complete(fuel.amount)
+                    }
+                }
+
+            }
         }
     }
 
-    fun invalidateDinner() {
-        currentDinner = currentDinner.copy(isReady = false)
+    suspend fun getDinner(): Dinner{
+        val plate = CompletableDeferred<Dinner>()
+        messages.send(GetDinner(plate))
+        return plate.await()
     }
+
+    suspend fun invalidateDinner() {
+        messages.send(InvalidateDinner)
+    }
+
+    suspend fun getCurrentFuel(): Int {
+        val report = CompletableDeferred<Int>()
+        messages.send(GetFuel(report))
+        return report.await()
+    }
+
+    sealed class Message
+    class GetDinner(val plate: CompletableDeferred<Dinner>) : Message()
+    object InvalidateDinner : Message()
+    class GetFuel(val report: CompletableDeferred<Int>): Message()
 }
 
 //////////////////////////////////////////////////////////////////
