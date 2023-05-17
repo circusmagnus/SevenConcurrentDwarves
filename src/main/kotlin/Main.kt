@@ -1,9 +1,6 @@
-@file:OptIn(ExperimentalCoroutinesApi::class)
-
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.updateAndGet
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.random.Random
 
 suspend fun main() {
@@ -13,10 +10,15 @@ suspend fun main() {
 
     coroutineScope {
         repeat(7) { dwarfId ->
-            launch {
+            val dwarf = launch {
                 val dinner = kitchen.getDinner()
                 println("Dwarf #$dwarfId is eating dinner: $dinner")
             }
+            if(dwarfId == 0){
+                delay(10)
+                dwarf.cancel()
+            }
+
         }
     }
 
@@ -29,16 +31,19 @@ suspend fun main() {
 
 class Kitchen {
 
-    private var currentDinner = MutableStateFlow(Dinner.EMPTY)
+    private var currentDinner: Dinner = Dinner.EMPTY
     val fuel: Fuel = Fuel(10)
+    private val mutex = Mutex()
 
-    suspend fun getDinner(): Dinner = currentDinner.updateAndGet { dinner ->
-        if (dinner.isReady) dinner else cook(fuel)
+    suspend fun getDinner(): Dinner = mutex.withLock {
+        withContext(NonCancellable){
+            if (currentDinner.isReady) currentDinner
+            else cook(fuel).also { cooked -> currentDinner = cooked }
+        }
     }
 
-
     fun invalidateDinner() {
-        currentDinner.update { it.copy(isReady = false) }
+        currentDinner = currentDinner.copy(isReady = false)
     }
 }
 
