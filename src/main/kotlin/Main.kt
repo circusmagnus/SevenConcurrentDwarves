@@ -1,6 +1,4 @@
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import kotlin.random.Random
 
 suspend fun main() {
@@ -8,7 +6,7 @@ suspend fun main() {
 
     println("Dwarves are about to dine. Fuel level: ${kitchen.fuel.amount} \n")
 
-    coroutineScope {
+    withContext(Dispatchers.Default.limitedParallelism(1)) {
         repeat(7) { dwarfId ->
             launch {
                 val dinner = kitchen.getDinner()
@@ -25,7 +23,6 @@ suspend fun main() {
 
 class Kitchen {
 
-    @Volatile
     private var currentDinner: Dinner = Dinner.EMPTY
     val fuel: Fuel = Fuel(10)
 
