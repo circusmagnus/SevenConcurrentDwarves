@@ -1,12 +1,12 @@
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consumeEach
 import kotlin.random.Random
 
 suspend fun main() {
-    val kitchen = Kitchen()
+    val kitchen = Kitchen(CoroutineScope(Dispatchers.Default))
 
-    println("Dwarves are about to dine. Fuel level: ${kitchen.fuel.amount} \n")
+    println("Dwarves are about to dine. Fuel level: ${kitchen.getFuelLevel()} \n")
 
     coroutineScope {
         repeat(7) { dwarfId ->
@@ -21,25 +21,55 @@ suspend fun main() {
         }
     }
 
-    val fuelRemaining = kitchen.fuel.amount
+    val fuelRemaining = kitchen.getFuelLevel()
     println("\nDinner eaten, fuel remaining: $fuelRemaining")
+    kitchen.cancel()
 }
 
 /////////////////////////////////////////////////////////////////
 
-class Kitchen {
+class Kitchen(scope: CoroutineScope) : CoroutineScope by scope {
 
-    private var currentDinner: Dinner = Dinner.EMPTY
-    val fuel: Fuel = Fuel(10)
-    private val mutex = Mutex()
+    private val inbox = Channel<Message>(8).apply {
+        launch {
+            var currentDinner: Dinner = Dinner.EMPTY
+            val fuel = Fuel(10)
 
-    suspend fun getDinner(): Dinner = mutex.withLock {
-        withContext(NonCancellable) {
-            if (currentDinner.isReady) currentDinner
-            else cook(fuel).also { cooked -> currentDinner = cooked }
+            consumeEach { message ->
+                when (message) {
+                    is GetDinner -> {
+                        val readyDinner =
+                            if (currentDinner.isReady) currentDinner
+                            else cook(fuel).also { cooked -> currentDinner = cooked }
+
+                        message.plate.complete(readyDinner)
+                    }
+
+                    is GetFuelLevel -> {
+                        message.report.complete(fuel.amount)
+                    }
+                }
+            }
         }
     }
+
+    suspend fun getDinner(): Dinner {
+        val plate = CompletableDeferred<Dinner>()
+        inbox.send(GetDinner(plate))
+        return plate.await()
+    }
+
+    suspend fun getFuelLevel(): Int {
+        val report = CompletableDeferred<Int>()
+        inbox.send(GetFuelLevel(report))
+        return report.await()
+    }
+
 }
+
+sealed class Message
+class GetDinner(val plate: CompletableDeferred<Dinner>) : Message()
+class GetFuelLevel(val report: CompletableDeferred<Int>) : Message()
 
 //////////////////////////////////////////////////////////////////
 
