@@ -10,9 +10,13 @@ suspend fun main() {
 
     coroutineScope {
         repeat(7) { dwarfId ->
-            launch {
+            val dwarf = launch {
                 val dinner = kitchen.getDinner()
                 println("Dwarf #$dwarfId is eating dinner: $dinner")
+            }
+            if (dwarfId == 0) {
+                delay(10)
+                dwarf.cancel()
             }
         }
     }
