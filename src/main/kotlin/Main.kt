@@ -17,7 +17,6 @@ suspend fun main() {
         }
     }
 
-    kitchen.invalidateDinner()
     val fuelRemaining = kitchen.fuel.amount
     println("\nDinner eaten, fuel remaining: $fuelRemaining")
 }
@@ -33,9 +32,6 @@ class Kitchen {
         if (currentDinner.isReady) currentDinner
         else cook(fuel).also { cooked -> currentDinner = cooked }
 
-    fun invalidateDinner() {
-        currentDinner = currentDinner.copy(isReady = false)
-    }
 }
 
 //////////////////////////////////////////////////////////////////
