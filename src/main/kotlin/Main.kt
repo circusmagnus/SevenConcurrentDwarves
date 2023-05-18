@@ -34,8 +34,10 @@ class Kitchen {
     private val mutex = Mutex()
 
     suspend fun getDinner(): Dinner = mutex.withLock {
-        if (currentDinner.isReady) currentDinner
-        else cook(fuel).also { cooked -> currentDinner = cooked }
+        withContext(NonCancellable) {
+            if (currentDinner.isReady) currentDinner
+            else cook(fuel).also { cooked -> currentDinner = cooked }
+        }
     }
 }
 
