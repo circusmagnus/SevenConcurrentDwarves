@@ -1,7 +1,6 @@
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.updateAndGet
-import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.random.Random
 
 suspend fun main() {
@@ -26,20 +25,20 @@ suspend fun main() {
 
 class Kitchen {
 
-    private val currentDinner = MutableStateFlow(Dinner.EMPTY)
-    val fuel: Fuel = Fuel(AtomicInteger(10))
+    private var currentDinner: Dinner = Dinner.EMPTY
+    val fuel: Fuel = Fuel(10)
+    private val mutex = Mutex()
 
-    suspend fun getDinner(): Dinner = currentDinner.updateAndGet { dinner ->
-        if (dinner.isReady) dinner
-        else cook(fuel)
+    suspend fun getDinner(): Dinner = mutex.withLock {
+        if (currentDinner.isReady) currentDinner
+        else cook(fuel).also { cooked -> currentDinner = cooked }
     }
-
 }
 
 //////////////////////////////////////////////////////////////////
 
 suspend fun cook(fuel: Fuel): Dinner {
-    fuel.amount.updateAndGet { it - 1 }
+    fuel.amount--
     delay(70)
     return Dinner(ingredients = Random.nextInt(100).toString(), isReady = true)
 }
@@ -55,4 +54,4 @@ data class Dinner(
     }
 }
 
-data class Fuel(var amount: AtomicInteger)
+data class Fuel(var amount: Int)
