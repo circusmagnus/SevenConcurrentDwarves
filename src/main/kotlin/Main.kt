@@ -25,6 +25,7 @@ suspend fun main() {
 
 class Kitchen {
 
+    @Volatile
     private var currentDinner: Dinner = Dinner.EMPTY
     val fuel: Fuel = Fuel(10)
 
