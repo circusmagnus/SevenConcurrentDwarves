@@ -1,10 +1,10 @@
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consumeEach
 import kotlin.random.Random
 
 suspend fun main() {
-    val kitchen = Kitchen()
+    val kitchen = Kitchen(CoroutineScope(Dispatchers.Default))
 
     println("Dwarves are about to dine. Fuel level: ${kitchen.fuel.amount} \n")
 
@@ -23,21 +23,35 @@ suspend fun main() {
 
     val fuelRemaining = kitchen.fuel.amount
     println("\nDinner eaten, fuel remaining: $fuelRemaining")
+    kitchen.cancel()
 }
 
 /////////////////////////////////////////////////////////////////
 
-class Kitchen {
+class Kitchen(scope: CoroutineScope) : CoroutineScope by scope {
 
-    private var currentDinner: Dinner = Dinner.EMPTY
-    val fuel: Fuel = Fuel(10)
-    private val mutex = Mutex()
+    val fuel = Fuel(10)
 
-    suspend fun getDinner(): Dinner = mutex.withLock {
-        withContext(NonCancellable) {
-            if (currentDinner.isReady) currentDinner
-            else cook(fuel).also { cooked -> currentDinner = cooked }
+    private val inbox = Channel<CompletableDeferred<Dinner>>(8)
+
+    init {
+        launch {
+            var currentDinner: Dinner = Dinner.EMPTY
+
+            inbox.consumeEach { plate ->
+                val readyDinner =
+                    if (currentDinner.isReady) currentDinner
+                    else cook(fuel).also { cooked -> currentDinner = cooked }
+
+                plate.complete(readyDinner)
+            }
         }
+    }
+
+    suspend fun getDinner(): Dinner {
+        val plate = CompletableDeferred<Dinner>()
+        inbox.send(plate)
+        return plate.await()
     }
 }
 
